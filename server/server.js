@@ -1,4 +1,3 @@
-//IMPORT
 const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
@@ -14,7 +13,6 @@ const { createApi } = require('unsplash-js');
 const showdown = require('showdown');
 const axios = require('axios');
 
-//INITIALIZE
 const app = express();
 app.use(cors());
 const PORT = process.env.PORT;
@@ -36,7 +34,6 @@ const transporter = nodemailer.createTransport({
 const genAI = new GoogleGenerativeAI(process.env.API_KEY);
 const unsplash = createApi({ accessKey: process.env.UNSPLASH_ACCESS_KEY });
 
-//SCHEMA
 const adminSchema = new mongoose.Schema({
     email: { type: String, unique: true, required: true },
     mName: String,
@@ -66,15 +63,9 @@ const courseSchema = new mongoose.Schema({
     end: { type: Date, default: Date.now },
     completed: { type: Boolean, default: false }
 });
-
-
-//MODEL
 const User = mongoose.model('User', userSchema);
 const Course = mongoose.model('Course', courseSchema);
 
-//REQUEST
-
-//SIGNUP
 app.post('/api/signup', async (req, res) => {
     const { email, mName, password, type } = req.body;
 
@@ -100,7 +91,6 @@ app.post('/api/signup', async (req, res) => {
     }
 });
 
-//SIGNIN
 app.post('/api/signin', async (req, res) => {
     const { email, password } = req.body;
 
@@ -123,7 +113,6 @@ app.post('/api/signin', async (req, res) => {
 
 });
 
-//SEND MAIL
 app.post('/api/data', async (req, res) => {
     const receivedData = req.body;
 
@@ -182,7 +171,6 @@ app.post('/api/prompt', async (req, res) => {
     })
 });
 
-//GET GENERATE THEORY
 app.post('/api/generate', async (req, res) => {
     const receivedData = req.body;
 
@@ -224,7 +212,6 @@ app.post('/api/generate', async (req, res) => {
 
 });
 
-//GET IMAGE
 app.post('/api/image', async (req, res) => {
     const receivedData = req.body;
     const promptString = receivedData.prompt;
@@ -239,7 +226,6 @@ app.post('/api/image', async (req, res) => {
     }
 })
 
-//GET VIDEO 
 app.post('/api/yt', async (req, res) => {
     try {
 
@@ -254,7 +240,6 @@ app.post('/api/yt', async (req, res) => {
     }
 });
 
-//GET TRANSCRIPT 
 app.post('/api/transcript', async (req, res) => {
     const receivedData = req.body;
     const promptString = receivedData.prompt;
@@ -265,7 +250,6 @@ app.post('/api/transcript', async (req, res) => {
     })
 });
 
-//STORE COURSE
 app.post('/api/course', async (req, res) => {
     const { user, content, type, mainTopic } = req.body;
 
@@ -287,7 +271,6 @@ app.post('/api/course', async (req, res) => {
     })
 });
 
-//UPDATE COURSE
 app.post('/api/update', async (req, res) => {
     const { content, courseId } = req.body;
     try {
@@ -327,7 +310,6 @@ app.post('/api/finish', async (req, res) => {
 
 });
 
-//SEND CERTIFICATE
 app.post('/api/sendcertificate', async (req, res) => {
     const { html, email } = req.body;
 
@@ -358,7 +340,6 @@ app.post('/api/sendcertificate', async (req, res) => {
     });
 });
 
-//GET ALL COURSES
 app.get('/api/courses', async (req, res) => {
     try {
         const { userId } = req.query;
@@ -410,8 +391,6 @@ app.post('/api/chat', async (req, res) => {
 
 });
 
-
-//LISTEN
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
