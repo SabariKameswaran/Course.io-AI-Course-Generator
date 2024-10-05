@@ -90,3 +90,43 @@ http://localhost:3000
       - Upload a PDF document, and the system will extract content to build a course based on the material provided.
    - **4.Personalized Learning:**
       - Customize your learning path based on the topics you wish to explore, and the platform will generate a detailed course for you.
+
+  ## Flow Chart
+```mermaid
+graph TD
+  A[User] -->|Upload PDF / Define Topics| B[Backend - Node.js]
+  B --> |Process PDF with RAG| C[Course Generator Service]
+  C --> D[Database - MongoDB]
+  C --> E[API Integration for YouTube & Unsplash]
+  E --> |Fetch Videos and Images| F[Multimedia Content]
+  D --> F[Multimedia Content]
+  F --> G[Frontend - React.js]
+  G --> H[User Views Generated Course]
+
+  H --> |Ask Question| I[LLM-Powered Chat Assistant]
+  I --> |Retrieve Answer| J[Backend - Node.js]
+  J --> |Get Answer from LLM| K[LLM Service]
+  K --> I
+  I --> |Display Answer| H
+```
+
+
+### **Flowchart Explanation**:
+
+1. **User Interaction**:
+   - Users either upload a PDF or define course topics and subtopics.
+   
+2. **Backend Processing**:
+   - The **Node.js backend** processes the PDF using **Retrieval-Augmented Generation (RAG)** to extract relevant content.
+   - The **Course Generator** service structures the content, including topics and subtopics, and stores this in the **MongoDB** database.
+
+3. **Multimedia Integration**:
+   - The backend integrates with the **YouTube API** and **Unsplash API** to fetch relevant multimedia content (videos and images) to enrich the course.
+
+4. **Frontend**:
+   - The **React.js frontend** renders the course for users, displaying both text and multimedia content.
+
+5. **Real-Time Assistance**:
+   - Users can ask questions about the course via an integrated **LLM-powered chat assistant**.
+   - The backend retrieves the query, communicates with the LLM, and returns the answer to the user in real time.
+
