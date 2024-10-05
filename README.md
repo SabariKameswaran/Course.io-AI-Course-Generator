@@ -130,3 +130,43 @@ graph TD
    - Users can ask questions about the course via an integrated **LLM-powered chat assistant**.
    - The backend retrieves the query, communicates with the LLM, and returns the answer to the user in real time.
 
+## **API Endpoints**
+### **Backend API**
+#### **Course Endpoints**
+ - **POST /api/courses/create:** Create a new course.
+**Request body:**
+```bash
+{
+  "topic": "React Development",
+  "subtopics": ["Hooks", "State Management", "Components"]
+}
+```
+ - **POST /api/courses/upload-pdf:** Upload a PDF to generate a course.
+**Request body (multipart form):**
+```bash
+{
+  "file": <pdf-file>
+}
+```
+#### **Chat Endpoints**
+ - **POST /api/chat/ask:** Send a question to the AI chat system.
+**Request body:**
+```bash
+{
+  "question": "What are React Hooks?",
+  "courseId": "<course-id>"
+}
+```
+
+## **Future Enhancements:**
+ - **Quiz Integration:** Adding a quiz functionality to evaluate learners after each topic.
+ - **Progress Tracking:** Implementing user progress tracking to monitor completion of topics and subtopics.
+ - **Course Recommendations:** An AI-based recommendation system for suggesting relevant courses based on user interests and learning history.
+ - **Real-Time Collaboration:** Enabling users to collaborate with peers by sharing courses and asking group questions.
+
+ ## **Conclusion:**
+ The AI-Powered Personalized Course Generator revolutionizes the way educational content is created, consumed, and personalized. By combining advanced AI techniques such as Retrieval-Augmented Generation (RAG), LLM-powered real-time assistance, and seamless multimedia integration, the platform offers a dynamic, interactive learning experience tailored to each user's needs. The ability to generate courses from uploaded PDFs, along with the real-time chat support embedded within each course, ensures learners have access to accurate and relevant information at all times.
+
+This project stands out by providing a user-centric approach to education, where learners can create, customize, and interact with their courses like never before. With the flexibility to cater to individual learning paths and the power to enhance learning through AI-driven assistance, this platform has the potential to set a new standard in personalized education.
+
+As we continue to evolve the platform, future enhancements like progress tracking, quiz integration, and AI-based course recommendations will further empower learners, making education more accessible, personalized, and engaging.
