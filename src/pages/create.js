@@ -5,10 +5,10 @@ import { AiOutlineLoading } from 'react-icons/ai';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { serverURL } from '../constants';
+import { serverURL,intelServerURL } from '../constants';
 
 const Create = () => {
-    const maxSubtopics = 10; // Increased max subtopics
+    const maxSubtopics = 10;
     const [formValues, setFormValues] = useState([{ sub: "" }]);
     const [processing, setProcessing] = useState(false);
     const [selectedValue, setSelectedValue] = useState('5');
@@ -49,97 +49,57 @@ const Create = () => {
 
     const handleSubmit = (event) => {
         event.preventDefault();
-        const subtopics = [];
         setProcessing(true);
-        formValues.forEach(subtopic => {
-            subtopics.push(subtopic.subtopic);
-        });
 
-        const mainTopic = document.getElementById('topic1').value;
+        const subtopics = formValues.map(subtopic => subtopic.sub).filter(sub => sub.trim());
+        const mainTopic = document.getElementById('topic1').value.trim();
 
-        if (!mainTopic.trim()) {
+        if (!mainTopic || subtopics.length === 0) {
             setProcessing(false);
             showToast('Please fill in all required fields');
             return;
         }
 
-        if (subtopics.length === 0) {
-            setProcessing(false);
-            showToast('Please fill in all required fields');
-            return;
-        }
+        const promptData = {
+            main_topic: mainTopic,
+            subtopics: subtopics,
+            num_topics: selectedValue,
+            course_type: selectedType
+        };
 
-        const prompt = `Generate a list of Strict ${selectedValue} topics and any number sub topic for each topic for main title ${mainTopic.toLowerCase()}, everything in single line. Those ${selectedValue} topics should Strictly include these topics :- ${subtopics.join(', ').toLowerCase()}. Strictly Keep theory, youtube, image field empty.Generate only in English. Generate in the form of JSON in this format {
-            "${mainTopic.toLowerCase()}": [
-       {
-       "title": "Topic Title",
-       "subtopics": [
-        {
-        "title": "Sub Topic Title",
-        "theory": "",
-        "youtube": "",
-        "image": "",
-        "done": false
-        },
-        {
-        "title": "Sub Topic Title",
-        "theory": "",
-        "youtube": "",
-        "image": "",
-        "done": false
-        }
-       ]
-       },
-       {
-       "title": "Topic Title",
-       "subtopics": [
-        {
-        "title": "Sub Topic Title",
-        "theory": "",
-        "youtube": "",
-        "image": "",
-        "done": false
-        },
-        {
-        "title": "Sub Topic Title",
-        "theory": "",
-        "youtube": "",
-        "image": "",
-        "done": false
-        }
-       ]
-       }
-      ]
-      }`;
-
-        sendPrompt(prompt, mainTopic, selectedType)
+        sendPrompt(promptData, mainTopic);
     };
 
-    async function sendPrompt(prompt, mainTopic, selectedType) {
-        const dataToSend = {
-            prompt: prompt,
-        };
+    async function sendPrompt(promptData, mainTopic) {
         try {
-            const postURL = serverURL + '/api/prompt';
-            const res = await axios.post(postURL, dataToSend);
-            const generatedText = res.data.generatedText;
-            const cleanedJsonString = generatedText.replace(/```json/g, '').replace(/```/g, '');
-            try {
-                const parsedJson = JSON.parse(cleanedJsonString);
+            const nodeResponse = await axios.post(`${serverURL}/api/prompt`, {
+                prompt: JSON.stringify(promptData)
+            });
+            const intelResponse = await axios.post(`${intelServerURL}/api/prompt`, {
+                prompt: JSON.stringify(promptData)
+            });
+            const finalResponse = intelResponse.data.success ? intelResponse : nodeResponse;
+            if (finalResponse.data.success) {
+                const parsedJson = JSON.parse(finalResponse.data.generatedText);
                 setProcessing(false);
-                navigate('/topics', { state: { jsonData: parsedJson, mainTopic: mainTopic.toLowerCase(), type: selectedType.toLowerCase() } });
-            } catch (error) {
-                sendPrompt(prompt, mainTopic, selectedType)
+                navigate('/topics', {
+                    state: {
+                        jsonData: parsedJson,
+                        mainTopic: mainTopic.toLowerCase(),
+                        type: selectedType.toLowerCase()
+                    }
+                });
+            } else {
+                throw new Error(finalResponse.data.error || 'Failed to generate course');
             }
         } catch (error) {
-            sendPrompt(prompt, mainTopic, selectedType)
+            setProcessing(false);
+            showToast('Error generating course. Please try again.');
         }
     }
-
     const handleRadioChange = (event) => {
         setSelectedValue(event.target.value);
     };
-
     const handleRadioChangeType = (event) => {
         setSelectedType(event.target.value);
     };
@@ -147,7 +107,6 @@ const Create = () => {
     return (
         <div className='h-screen flex flex-col'>
             <Header isHome={true} className="sticky top-0 z-50" />
-
             <div className='dark:bg-black flex-1'>
                 <div className='flex-1 flex items-center justify-center py-10'>
                     <form onSubmit={handleSubmit} className="max-w-sm m-auto py-4 no-scrollbar">
@@ -196,10 +155,10 @@ const Create = () => {
                                     <Radio onChange={handleRadioChangeType} className='text-black border-black dark:text-white dark:border-white dark:focus:text-black focus:ring-black dark:focus:ring-white dark:focus:bg-black ' id="textcourse" name="value1" value="Text & Image Course" defaultChecked />
                                     <Label className='text-black dark:text-white font-bold' htmlFor="textcourse">Theory & Image Course</Label>
                                 </div>
-                                {/* <div className="flex items-center gap-2 px-2 h-11 focus:ring-black focus:border-black border border-black font-normal bg-white rounded-none w-full dark:bg-black dark:border-white dark:text-white mb-6">
+                                <div className="flex items-center gap-2 px-2 h-11 focus:ring-black focus:border-black border border-black font-normal bg-white rounded-none w-full dark:bg-black dark:border-white dark:text-white mb-6">
                                     <Radio onChange={handleRadioChangeType} className='text-black border-black dark:text-white dark:border-white dark:focus:text-black focus:ring-black dark:focus:ring-white dark:focus:bg-black ' id="videocourse" name="value1" value="Video & Text Course" />
                                     <Label className='text-black dark:text-white font-bold' htmlFor="videocourse">Video & Theory Course</Label>
-                                </div> */}
+                                </div>
                             </fieldset>
 
                             <Button isProcessing={processing} processingSpinner={<AiOutlineLoading className="h-6 w-6 animate-spin" />} className='items-center justify-center text-center dark:bg-white dark:text-black bg-black text-white font-bold rounded-none w-full enabled:hover:bg-black enabled:focus:bg-black enabled:focus:ring-transparent dark:enabled:hover:bg-white dark:enabled:focus:bg-white dark:enabled:focus:ring-transparent' type="submit">Submit</Button>

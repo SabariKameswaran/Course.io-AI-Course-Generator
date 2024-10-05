@@ -1,9 +1,11 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
-const nodemailer = require('nodemailer')
+const nodemailer = require('nodemailer');
 const cors = require('cors');
 const crypto = require('crypto');
+const { spawn } = require('child_process');
+const path = require('path');
 require('dotenv').config();
 const gis = require('g-i-s');
 const youtubesearchapi = require("youtube-search-api");
@@ -13,14 +15,62 @@ const { createApi } = require('unsplash-js');
 const showdown = require('showdown');
 const axios = require('axios');
 
+// Intel oneAPI Python subprocess handler
+class IntelOneAPIHandler {
+    constructor() {
+        this.pythonProcess = null;
+        this.initPythonProcess();
+    }
+
+    initPythonProcess() {
+        const pythonScriptPath = path.join(__dirname, 'intel_processor.py');
+        this.pythonProcess = spawn('python', [pythonScriptPath]);
+
+        this.pythonProcess.stderr.on('data', (data) => {
+            console.error(`Python Error: ${data}`);
+        });
+
+        this.pythonProcess.on('close', (code) => {
+            console.log(`Python process exited with code ${code}`);
+            if (code !== 0) {
+                setTimeout(() => this.initPythonProcess(), 1000);
+            }
+        });
+    }
+
+    async processRequest(data) {
+        return new Promise((resolve, reject) => {
+            let result = '';
+            
+            this.pythonProcess.stdout.on('data', (data) => {
+                result += data.toString();
+            });
+
+            this.pythonProcess.stdin.write(JSON.stringify(data) + '\n');
+
+            setTimeout(() => {
+                try {
+                    const parsedResult = JSON.parse(result);
+                    resolve(parsedResult);
+                } catch (error) {
+                    reject(new Error('Invalid response from Python process'));
+                }
+            }, 1000);
+        });
+    }
+}
+
 const app = express();
 app.use(cors());
 const PORT = process.env.PORT;
 app.use(bodyParser.json());
+
+const intelHandler = new IntelOneAPIHandler();
+
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('MongoDB connection error:', err));
-mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 465,
@@ -31,6 +81,7 @@ const transporter = nodemailer.createTransport({
         pass: process.env.PASSWORD,
     },
 });
+
 const genAI = new GoogleGenerativeAI(process.env.API_KEY);
 const unsplash = createApi({ accessKey: process.env.UNSPLASH_ACCESS_KEY });
 
@@ -136,40 +187,63 @@ app.post('/api/data', async (req, res) => {
 
 app.post('/api/prompt', async (req, res) => {
     const receivedData = req.body;
-
     const promptString = receivedData.prompt;
 
-    const safetySettings = [
-        {
-            category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-            threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        },
-        {
-            category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-            threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        },
-        {
-            category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-            threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        },
-        {
-            category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-            threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        },
+    try {
+        // Extract data from the prompt string
+        const promptData = extractPromptData(promptString);
+        
+        // Process with Intel oneAPI
+        const intelProcessedData = await intelHandler.processRequest(promptData);
+        
+        // Use the Intel-processed data with Gemini for final generation
+        const safetySettings = [
+            {
+                category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            },
+            {
+                category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            },
+            {
+                category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            },
+            {
+                category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            },
     ];
 
     const model = genAI.getGenerativeModel({ model: "gemini-pro", safetySettings });
-
-    const prompt = promptString;
-
-    await model.generateContent(prompt).then(result => {
+        
+        const enhancedPrompt = `Using these Intel-optimized insights: ${JSON.stringify(intelProcessedData)}, ${promptString}`;
+        
+        const result = await model.generateContent(enhancedPrompt);
         const response = result.response;
         const generatedText = response.text();
+        
         res.status(200).json({ generatedText });
-    }).catch(error => {
+    } catch (error) {
+        console.error('Error in /api/prompt:', error);
         res.status(500).json({ success: false, message: 'Internal server error' });
-    })
+    }
 });
+function extractPromptData(prompt) {
+    const mainTopicMatch = prompt.match(/main title (.*?),/);
+    const topicsCountMatch = prompt.match(/Strict (\d+) topics/);
+    const subtopicsMatch = prompt.match(/include these topics :- (.*?)\./);
+
+    return {
+        main_topic: mainTopicMatch ? mainTopicMatch[1].trim() : '',
+        num_topics: topicsCountMatch ? topicsCountMatch[1] : '5',
+        subtopics: subtopicsMatch 
+            ? subtopicsMatch[1].split(',').map(topic => topic.trim()) 
+            : [],
+        type: 'default'
+    };
+}
 
 app.post('/api/generate', async (req, res) => {
     const receivedData = req.body;
@@ -218,7 +292,6 @@ app.post('/api/image', async (req, res) => {
     gis(promptString, logResults);
     function logResults(error, results) {
         if (error) {
-            //ERROR
         }
         else {
             res.status(200).json({ url: results[0].url });
