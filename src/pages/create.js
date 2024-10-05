@@ -155,10 +155,10 @@ const Create = () => {
                                     <Radio onChange={handleRadioChangeType} className='text-black border-black dark:text-white dark:border-white dark:focus:text-black focus:ring-black dark:focus:ring-white dark:focus:bg-black ' id="textcourse" name="value1" value="Text & Image Course" defaultChecked />
                                     <Label className='text-black dark:text-white font-bold' htmlFor="textcourse">Theory & Image Course</Label>
                                 </div>
-                                <div className="flex items-center gap-2 px-2 h-11 focus:ring-black focus:border-black border border-black font-normal bg-white rounded-none w-full dark:bg-black dark:border-white dark:text-white mb-6">
+                                {/* <div className="flex items-center gap-2 px-2 h-11 focus:ring-black focus:border-black border border-black font-normal bg-white rounded-none w-full dark:bg-black dark:border-white dark:text-white mb-6">
                                     <Radio onChange={handleRadioChangeType} className='text-black border-black dark:text-white dark:border-white dark:focus:text-black focus:ring-black dark:focus:ring-white dark:focus:bg-black ' id="videocourse" name="value1" value="Video & Text Course" />
                                     <Label className='text-black dark:text-white font-bold' htmlFor="videocourse">Video & Theory Course</Label>
-                                </div>
+                                </div> */}
                             </fieldset>
 
                             <Button isProcessing={processing} processingSpinner={<AiOutlineLoading className="h-6 w-6 animate-spin" />} className='items-center justify-center text-center dark:bg-white dark:text-black bg-black text-white font-bold rounded-none w-full enabled:hover:bg-black enabled:focus:bg-black enabled:focus:ring-transparent dark:enabled:hover:bg-white dark:enabled:focus:bg-white dark:enabled:focus:ring-transparent' type="submit">Submit</Button>

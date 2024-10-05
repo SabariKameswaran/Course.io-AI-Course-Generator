@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const nodemailer = require('nodemailer');
 const cors = require('cors');
-const crypto = require('crypto');
 const { spawn } = require('child_process');
 const path = require('path');
 require('dotenv').config();
@@ -13,9 +12,6 @@ const { YoutubeTranscript } = require("youtube-transcript");
 const { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } = require("@google/generative-ai");
 const { createApi } = require('unsplash-js');
 const showdown = require('showdown');
-const axios = require('axios');
-
-// Intel oneAPI Python subprocess handler
 class IntelOneAPIHandler {
     constructor() {
         this.pythonProcess = null;
@@ -23,39 +19,61 @@ class IntelOneAPIHandler {
     }
 
     initPythonProcess() {
+        if (this.pythonProcess) {
+            this.pythonProcess.kill();
+        }
+
         const pythonScriptPath = path.join(__dirname, 'intel_processor.py');
         this.pythonProcess = spawn('python', [pythonScriptPath]);
 
         this.pythonProcess.stderr.on('data', (data) => {
-            console.error(`Python Error: ${data}`);
+            console.error(`Python Process Message: ${data.toString()}`);
         });
 
         this.pythonProcess.on('close', (code) => {
             console.log(`Python process exited with code ${code}`);
-            if (code !== 0) {
-                setTimeout(() => this.initPythonProcess(), 1000);
-            }
+            this.pythonProcess = null;
         });
     }
 
     async processRequest(data) {
         return new Promise((resolve, reject) => {
+            if (!this.pythonProcess) {
+                this.initPythonProcess();
+            }
+
             let result = '';
-            
-            this.pythonProcess.stdout.on('data', (data) => {
+            const timeout = setTimeout(() => {
+                console.log('Python process timeout, restarting...');
+                this.initPythonProcess();
+                reject(new Error('Processing timeout'));
+            }, 10000);
+
+            const responseHandler = (data) => {
                 result += data.toString();
-            });
-
-            this.pythonProcess.stdin.write(JSON.stringify(data) + '\n');
-
-            setTimeout(() => {
                 try {
                     const parsedResult = JSON.parse(result);
+                    clearTimeout(timeout);
+                    this.pythonProcess.stdout.removeListener('data', responseHandler);
                     resolve(parsedResult);
                 } catch (error) {
-                    reject(new Error('Invalid response from Python process'));
+                    if (result.includes('\n')) {
+                        clearTimeout(timeout);
+                        this.pythonProcess.stdout.removeListener('data', responseHandler);
+                        reject(new Error('Invalid response from Python process'));
+                    }
                 }
-            }, 1000);
+            };
+
+            this.pythonProcess.stdout.on('data', responseHandler);
+
+            try {
+                this.pythonProcess.stdin.write(JSON.stringify(data) + '\n');
+            } catch (error) {
+                clearTimeout(timeout);
+                this.initPythonProcess();
+                reject(new Error('Failed to write to Python process'));
+            }
         });
     }
 }
@@ -186,50 +204,55 @@ app.post('/api/data', async (req, res) => {
 
 
 app.post('/api/prompt', async (req, res) => {
-    const receivedData = req.body;
-    const promptString = receivedData.prompt;
-
+    const { prompt } = req.body;
+    
     try {
-        // Extract data from the prompt string
-        const promptData = extractPromptData(promptString);
-        
-        // Process with Intel oneAPI
-        const intelProcessedData = await intelHandler.processRequest(promptData);
-        
-        // Use the Intel-processed data with Gemini for final generation
-        const safetySettings = [
-            {
-                category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            },
-            {
-                category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            },
-            {
-                category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            },
-            {
-                category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            },
+        if (prompt.includes('course structure') || prompt.includes('curriculum')) {
+            const promptData = extractPromptData(prompt);
+            const intelProcessedData = await intelHandler.processRequest(promptData);
+            const enhancedPrompt = `Based on this optimized course structure: ${JSON.stringify(intelProcessedData)}, ${prompt}`;
+            const response = await generateGeminiResponse(enhancedPrompt);
+            res.status(200).json({ generatedText: response });
+        } else {
+            const response = await generateGeminiResponse(prompt);
+            res.status(200).json({ generatedText: response });
+        }
+    } catch (error) {
+        console.error('Error in /api/prompt:', error);
+        try {
+            const response = await generateGeminiResponse(prompt);
+            res.status(200).json({ generatedText: response });
+        } catch (fallbackError) {
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+});
+
+async function generateGeminiResponse(prompt) {
+    const safetySettings = [
+        {
+            category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+            threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+        },
+        {
+            category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+            threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+        },
+        {
+            category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+            threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+        },
+        {
+            category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+            threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+        },
     ];
 
     const model = genAI.getGenerativeModel({ model: "gemini-pro", safetySettings });
-        
-        const enhancedPrompt = `Using these Intel-optimized insights: ${JSON.stringify(intelProcessedData)}, ${promptString}`;
-        
-        const result = await model.generateContent(enhancedPrompt);
-        const response = result.response;
-        const generatedText = response.text();
-        
-        res.status(200).json({ generatedText });
-    } catch (error) {
-        console.error('Error in /api/prompt:', error);
-        res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-});
+    const result = await model.generateContent(prompt);
+    return result.response.text();
+}
+
 function extractPromptData(prompt) {
     const mainTopicMatch = prompt.match(/main title (.*?),/);
     const topicsCountMatch = prompt.match(/Strict (\d+) topics/);
@@ -237,11 +260,11 @@ function extractPromptData(prompt) {
 
     return {
         main_topic: mainTopicMatch ? mainTopicMatch[1].trim() : '',
-        num_topics: topicsCountMatch ? topicsCountMatch[1] : '5',
+        num_topics: topicsCountMatch ? parseInt(topicsCountMatch[1]) : 5,
         subtopics: subtopicsMatch 
             ? subtopicsMatch[1].split(',').map(topic => topic.trim()) 
             : [],
-        type: 'default'
+        type: 'course_structure'
     };
 }
 
