@@ -26,15 +26,15 @@ Ensure you have the following installed:
    ```bash
    git clone https://github.com/SabariKameswaran/Course.io-Intel-Hackathon.git
    ```
-2.Navigate into the project directory:
+2. Navigate into the project directory:
   ```bash
   cd Course.io-Intel-Hackathon
 ```
-3.Install dependencies:
+3. Install dependencies:
 ```bash
 npm install
 ```
-4.Create an env file:
+4. Create an env file:
 Create a .env file in the backend directory and add the following environment variables:
 ```bash
 PORT=5000
@@ -47,16 +47,16 @@ EMAIL=<mailid_used_to_create_app_in_google_console>
 PASSWORD=<password_given_by_googel_app>
 UNSPLASH_ACCESS_KEY=<your_api>
 ```
-5.Start the Developement Server:
+5. Start the Developement Server:
 ```bash
 cd server
 node server.js
 ```
-6.Start the Application:
+6. Start the Application:
 ```bash
 npm start
 ```
-7.Open in a Browser:'
+7. Open in a Browser:'
 ```bash
 http://localhost:3000
 ```
@@ -79,16 +79,16 @@ http://localhost:3000
     Unsplash API: To fetch related images.
 
   ## Usage
-  - **1.Course Generation:**
+  - **1. Course Generation:**
       - Navigate to the frontend at http://localhost:3000.
       - Enter topics or upload a PDF to generate a new course.
       - The system will automatically pull in relevant multimedia resources (videos and images) and create a structured course.
-   - **2.Real Time Assistance:**
+   - **2. Real Time Assistance:**
       - During the course, use the integrated chat system to ask questions related to any topic or subtopic.
       - The AI-powered chat will respond with detailed answers in real time, providing additional learning support.
-   - **3.PDF Upload:**
+   - **3. PDF Upload:**
       - Upload a PDF document, and the system will extract content to build a course based on the material provided.
-   - **4.Personalized Learning:**
+   - **4. Personalized Learning:**
       - Customize your learning path based on the topics you wish to explore, and the platform will generate a detailed course for you.
 
   ## Flow Chart
